@@ -244,6 +244,7 @@ export default function HomePage() {
                   onSkip={handleSkip}
                   onDraftOutreach={setOutreachProperty}
                   savedIds={savedIds}
+                  authToken={authToken}
                 />
               </div>
               <div className="sticky top-6 h-[calc(100vh-200px)]">
@@ -265,6 +266,7 @@ export default function HomePage() {
                   onSkip={handleSkip}
                   onDraftOutreach={setOutreachProperty}
                   savedIds={savedIds}
+                  authToken={authToken}
                 />
               ) : (
                 <div className="h-[60vh] rounded-lg overflow-hidden">

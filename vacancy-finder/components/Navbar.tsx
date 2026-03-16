@@ -21,6 +21,9 @@ export default function Navbar() {
   const navLinks = [
     { href: "/", label: "Search" },
     { href: "/saved", label: "Saved" },
+    { href: "/watchlist", label: "Watchlists" },
+    { href: "/intel", label: "Intel" },
+    { href: "/deals", label: "Deals" },
     { href: "/history", label: "History" },
   ];
 

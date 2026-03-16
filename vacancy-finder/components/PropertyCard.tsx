@@ -3,7 +3,9 @@
 import { useState } from "react";
 import Badge from "./ui/Badge";
 import Button from "./ui/Button";
+import VacancyScoreCard from "./VacancyScoreCard";
 import type { VacantProperty } from "@/lib/types";
+import type { VacancyScore } from "@/lib/signals/types";
 
 interface PropertyCardProps {
   property: VacantProperty;
@@ -11,6 +13,7 @@ interface PropertyCardProps {
   onSkip: (property: VacantProperty) => void;
   onDraftOutreach: (property: VacantProperty) => void;
   isSaved?: boolean;
+  authToken?: string | null;
 }
 
 export default function PropertyCard({
@@ -19,8 +22,44 @@ export default function PropertyCard({
   onSkip,
   onDraftOutreach,
   isSaved = false,
+  authToken,
 }: PropertyCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [vacancyScore, setVacancyScore] = useState<VacancyScore | null>(null);
+
+  const handleDeepAnalyze = async () => {
+    if (!authToken || analyzing) return;
+    setAnalyzing(true);
+    try {
+      const res = await fetch("/api/analyze", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${authToken}`,
+        },
+        body: JSON.stringify({
+          propertyId: property.id,
+          address: property.address,
+          city: property.city,
+          state: property.state,
+          zip: property.zip,
+          lat: property.lat,
+          lng: property.lng,
+          ownerName: property.owner_name,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setVacancyScore(data.score);
+        setExpanded(true);
+      }
+    } catch {
+      // Silent
+    } finally {
+      setAnalyzing(false);
+    }
+  };
 
   const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
   const streetViewUrl = property.lat && property.lng && apiKey
@@ -78,6 +117,13 @@ export default function PropertyCard({
           {property.vacancy_signal}
         </p>
 
+        {/* Vacancy Score (if analyzed) */}
+        {vacancyScore && (
+          <div className="mt-3">
+            <VacancyScoreCard score={vacancyScore} />
+          </div>
+        )}
+
         {/* Expandable details */}
         {expanded && (
           <div className="mt-3 pt-3 border-t border-resolute-border space-y-2">
@@ -134,6 +180,14 @@ export default function PropertyCard({
             onClick={() => onSave(property)}
           >
             {isSaved ? "Saved" : "Save"}
+          </Button>
+          <Button
+            size="sm"
+            variant={vacancyScore ? "ghost" : "secondary"}
+            onClick={handleDeepAnalyze}
+            disabled={analyzing || !authToken}
+          >
+            {analyzing ? "Analyzing..." : vacancyScore ? `Score: ${vacancyScore.composite_score}` : "Deep Analyze"}
           </Button>
           <Button
             size="sm"

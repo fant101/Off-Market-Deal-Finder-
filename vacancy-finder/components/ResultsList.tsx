@@ -12,6 +12,7 @@ interface ResultsListProps {
   onSkip: (property: VacantProperty) => void;
   onDraftOutreach: (property: VacantProperty) => void;
   savedIds: Set<string>;
+  authToken?: string | null;
 }
 
 type SortField = "confidence" | "address" | "property_type";
@@ -23,6 +24,7 @@ export default function ResultsList({
   onSkip,
   onDraftOutreach,
   savedIds,
+  authToken,
 }: ResultsListProps) {
   const [sortBy, setSortBy] = useState<SortField>("confidence");
 
@@ -117,6 +119,7 @@ export default function ResultsList({
             isSaved={savedIds.has(
               `${prop.address}-${prop.city}-${prop.state}`.toLowerCase()
             )}
+            authToken={authToken}
           />
         ))}
       </div>
