@@ -43,7 +43,7 @@ export default function ResultsList({
   const lowCount = properties.filter((p) => p.confidence === "low").length;
 
   const strategies = new Set(
-    properties.flatMap((p) => p.strategy.split(", "))
+    properties.flatMap((p) => (p.strategy || "").split(", "))
   );
 
   return (

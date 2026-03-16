@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Property data is required" }, { status: 400 });
     }
 
-    const selectedTones = tones || ["direct", "soft", "advisory"];
+    const selectedTones: ("direct" | "soft" | "advisory")[] = tones && tones.length > 0 ? tones : ["direct", "soft", "advisory"];
 
     // Generate all tones in parallel
     const promises = selectedTones.map(async (tone) => {

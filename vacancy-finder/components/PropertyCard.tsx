@@ -68,7 +68,7 @@ export default function PropertyCard({
           {property.estimated_sf && (
             <Badge variant="default">{property.estimated_sf}</Badge>
           )}
-          {!property.lat && !property.lng && (
+          {(property.lat == null || property.lng == null) && (
             <Badge variant="default">Approximate location</Badge>
           )}
         </div>

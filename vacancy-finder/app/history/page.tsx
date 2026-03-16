@@ -24,7 +24,10 @@ export default function HistoryPage() {
   }, []);
 
   useEffect(() => {
-    if (!authToken) return;
+    if (!authToken) {
+      setLoading(false);
+      return;
+    }
 
     const fetchSearches = async () => {
       try {
