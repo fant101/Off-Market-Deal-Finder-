@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import type { VacantProperty } from "@/lib/types";
 
@@ -10,13 +10,11 @@ interface ResultsMapProps {
   onPropertySelect: (property: VacantProperty) => void;
 }
 
-const CONFIDENCE_COLORS = {
+const CONFIDENCE_COLORS: Record<string, string> = {
   high: "#dc2626",
   medium: "#f59e0b",
   low: "#22c55e",
 };
-
-let mapsInitialized = false;
 
 export default function ResultsMap({
   properties,
@@ -26,18 +24,17 @@ export default function ResultsMap({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const initializedRef = useRef(false);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    if (!apiKey || !mapRef.current) return;
+    if (!apiKey || !mapRef.current || initializedRef.current) return;
 
     const init = async () => {
       try {
-        if (!mapsInitialized) {
-          setOptions({ key: apiKey, v: "weekly" });
-          mapsInitialized = true;
-        }
+        setOptions({ key: apiKey, v: "weekly" });
+        initializedRef.current = true;
 
         const { Map } = await importLibrary("maps") as google.maps.MapsLibrary;
         await importLibrary("marker");
@@ -54,20 +51,29 @@ export default function ResultsMap({
 
         mapInstanceRef.current = map;
         setLoaded(true);
-      } catch {
-        // Google Maps not available
+      } catch (err) {
+        console.error("Google Maps failed to load:", err);
       }
     };
 
     init();
   }, [center]);
 
+  // Update center when it changes after map is loaded
   useEffect(() => {
+    if (loaded && mapInstanceRef.current && center) {
+      mapInstanceRef.current.setCenter(center);
+    }
+  }, [center, loaded]);
+
+  const updateMarkers = useCallback(() => {
     if (!loaded || !mapInstanceRef.current) return;
 
     // Clear existing markers
     markersRef.current.forEach((m) => (m.map = null));
     markersRef.current = [];
+
+    if (typeof google === "undefined" || !google.maps) return;
 
     const bounds = new google.maps.LatLngBounds();
     let hasValidMarkers = false;
@@ -83,7 +89,7 @@ export default function ResultsMap({
       pinEl.style.width = "24px";
       pinEl.style.height = "24px";
       pinEl.style.borderRadius = "50%";
-      pinEl.style.backgroundColor = CONFIDENCE_COLORS[prop.confidence];
+      pinEl.style.backgroundColor = CONFIDENCE_COLORS[prop.confidence] || "#6b7280";
       pinEl.style.border = "3px solid white";
       pinEl.style.boxShadow = "0 2px 6px rgba(0,0,0,0.3)";
       pinEl.style.cursor = "pointer";
@@ -104,13 +110,17 @@ export default function ResultsMap({
 
     if (hasValidMarkers && markersRef.current.length > 1) {
       mapInstanceRef.current.fitBounds(bounds, 50);
-    } else if (center) {
+    } else if (hasValidMarkers && markersRef.current.length === 1 && center) {
       mapInstanceRef.current.setCenter(center);
-      mapInstanceRef.current.setZoom(12);
+      mapInstanceRef.current.setZoom(14);
     }
   }, [properties, loaded, center, onPropertySelect]);
 
+  useEffect(() => {
+    updateMarkers();
+  }, [updateMarkers]);
+
   return (
-    <div ref={mapRef} className="w-full h-full min-h-[400px] rounded-lg" />
+    <div ref={mapRef} className="w-full h-full min-h-[400px] rounded-lg bg-gray-100" />
   );
 }

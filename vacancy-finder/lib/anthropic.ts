@@ -11,6 +11,13 @@ export function getAnthropicClient(): Anthropic {
   return client;
 }
 
+function extractText(response: Anthropic.Message): string {
+  return response.content
+    .filter((block): block is Anthropic.TextBlock => block.type === "text")
+    .map((block) => block.text)
+    .join("\n");
+}
+
 export async function callClaudeWithWebSearch(
   systemPrompt: string,
   userPrompt: string
@@ -23,21 +30,15 @@ export async function callClaudeWithWebSearch(
     system: systemPrompt,
     tools: [
       {
-        type: "web_search" as never,
+        type: "web_search_20250305",
         name: "web_search",
         max_uses: 20,
-      } as never,
+      },
     ],
     messages: [{ role: "user", content: userPrompt }],
   });
 
-  const textBlocks = response.content.filter(
-    (block) => block.type === "text"
-  );
-  return textBlocks.map((block) => {
-    if (block.type === "text") return block.text;
-    return "";
-  }).join("\n");
+  return extractText(response);
 }
 
 export async function callClaude(
@@ -53,11 +54,5 @@ export async function callClaude(
     messages: [{ role: "user", content: userPrompt }],
   });
 
-  const textBlocks = response.content.filter(
-    (block) => block.type === "text"
-  );
-  return textBlocks.map((block) => {
-    if (block.type === "text") return block.text;
-    return "";
-  }).join("\n");
+  return extractText(response);
 }

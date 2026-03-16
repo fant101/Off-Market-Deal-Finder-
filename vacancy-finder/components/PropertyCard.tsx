@@ -22,12 +22,16 @@ export default function PropertyCard({
 }: PropertyCardProps) {
   const [expanded, setExpanded] = useState(false);
 
-  const streetViewUrl = property.lat && property.lng
-    ? `https://maps.googleapis.com/maps/api/streetview?size=400x200&location=${property.lat},${property.lng}&key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}`
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const streetViewUrl = property.lat && property.lng && apiKey
+    ? `https://maps.googleapis.com/maps/api/streetview?size=400x200&location=${property.lat},${property.lng}&key=${apiKey}`
     : null;
 
   return (
-    <div className="property-card bg-white rounded-lg shadow-sm overflow-hidden">
+    <div
+      data-address={property.address}
+      className="property-card bg-white rounded-lg shadow-sm overflow-hidden"
+    >
       {/* Street View */}
       {streetViewUrl && (
         <div className="h-32 bg-gray-100 overflow-hidden">

@@ -80,10 +80,11 @@ export default function SearchForm({ onSearch, loading }: SearchFormProps) {
     e.preventDefault();
     if (!location) return;
 
+    // Pass lat/lng if available, otherwise the backend will geocode the location text
     onSearch({
       location,
-      lat: lat || 0,
-      lng: lng || 0,
+      lat: lat ?? 0,
+      lng: lng ?? 0,
       propertyType,
       radius,
       strategies,

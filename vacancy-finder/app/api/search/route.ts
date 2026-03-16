@@ -19,9 +19,15 @@ const PROMPT_BUILDERS: Record<
   permit_gaps: buildPermitGapsPrompt,
 };
 
+const VALID_STRATEGIES: Strategy[] = [
+  "vacancy_signals",
+  "recent_closures",
+  "distressed",
+  "permit_gaps",
+];
+
 export async function POST(request: NextRequest) {
   try {
-    // Get auth token from header
     const authHeader = request.headers.get("authorization");
     const token = authHeader?.replace("Bearer ", "");
 
@@ -34,12 +40,27 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { location, lat, lng, propertyType, radius, strategies } = body;
 
-    if (!location || !strategies || strategies.length === 0) {
+    if (!location || !strategies || !Array.isArray(strategies) || strategies.length === 0) {
       return NextResponse.json(
         { error: "Location and at least one strategy are required" },
         { status: 400 }
       );
     }
+
+    // Validate strategies
+    const validStrategies = (strategies as string[]).filter((s) =>
+      VALID_STRATEGIES.includes(s as Strategy)
+    ) as Strategy[];
+
+    if (validStrategies.length === 0) {
+      return NextResponse.json(
+        { error: "No valid strategies provided" },
+        { status: 400 }
+      );
+    }
+
+    // Validate radius
+    const searchRadius = Math.max(1, Math.min(25, Number(radius) || 5));
 
     // Geocode the location if lat/lng not provided
     let searchLat = lat;
@@ -53,24 +74,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Build and fire strategy-specific Claude calls in parallel
-    const strategyPromises = (strategies as Strategy[]).map(async (strategy) => {
+    const strategyPromises = validStrategies.map(async (strategy) => {
       const builder = PROMPT_BUILDERS[strategy];
       if (!builder) return { properties: [] as VacantProperty[], marketNotes: "" };
 
-      const { system, user: userPrompt } = builder(location, radius, propertyType);
+      const { system, user: userPrompt } = builder(location, searchRadius, propertyType);
 
       try {
         const response = await callClaudeWithWebSearch(system, userPrompt);
         return parseAIResponse(response, strategy);
       } catch (error) {
         console.error(`Strategy ${strategy} failed:`, error);
-        // Retry once
+        // Retry once with backoff
         try {
           await new Promise((r) => setTimeout(r, 2000));
-          const response = await callClaudeWithWebSearch(
-            builder(location, radius, propertyType).system,
-            builder(location, radius, propertyType).user
-          );
+          const response = await callClaudeWithWebSearch(system, userPrompt);
           return parseAIResponse(response, strategy);
         } catch {
           return { properties: [] as VacantProperty[], marketNotes: "" };
@@ -115,12 +133,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Save to Supabase if user is authenticated
+    // Save to Supabase if user is authenticated and assign DB IDs
     let searchId: string | null = null;
     if (userId) {
       try {
-        // Create search record
-        const { data: searchRecord } = await supabaseAdmin
+        const { data: searchRecord, error: searchError } = await supabaseAdmin
           .from("searches")
           .insert({
             user_id: userId,
@@ -128,20 +145,22 @@ export async function POST(request: NextRequest) {
             location_lat: searchLat,
             location_lng: searchLng,
             property_type: propertyType,
-            radius_miles: radius,
-            strategies,
+            radius_miles: searchRadius,
+            strategies: validStrategies,
             result_count: allProperties.length,
           })
           .select("id")
           .single();
 
+        if (searchError) {
+          console.error("Failed to create search record:", searchError);
+        }
+
         searchId = searchRecord?.id ?? null;
 
-        // Insert properties and search results
         if (searchId && allProperties.length > 0) {
           for (const prop of allProperties) {
-            // Upsert property
-            const { data: propRecord } = await supabaseAdmin
+            const { data: propRecord, error: propError } = await supabaseAdmin
               .from("properties")
               .upsert(
                 {
@@ -160,25 +179,38 @@ export async function POST(request: NextRequest) {
               .select("id")
               .single();
 
+            if (propError) {
+              console.error("Failed to upsert property:", propError);
+              continue;
+            }
+
             if (propRecord) {
-              await supabaseAdmin.from("search_results").insert({
-                search_id: searchId,
-                property_id: propRecord.id,
-                vacancy_signal: prop.vacancy_signal,
-                signal_source: prop.signal_source,
-                time_vacant: prop.time_vacant,
-                owner_name: prop.owner_name,
-                owner_type: prop.owner_type,
-                confidence: prop.confidence,
-                details: prop.details,
-                strategy: prop.strategy,
-              });
+              // Attach the DB ID to the property for frontend use
+              prop.id = propRecord.id;
+
+              const { error: resultError } = await supabaseAdmin
+                .from("search_results")
+                .insert({
+                  search_id: searchId,
+                  property_id: propRecord.id,
+                  vacancy_signal: prop.vacancy_signal,
+                  signal_source: prop.signal_source,
+                  time_vacant: prop.time_vacant,
+                  owner_name: prop.owner_name,
+                  owner_type: prop.owner_type,
+                  confidence: prop.confidence,
+                  details: prop.details,
+                  strategy: prop.strategy,
+                });
+
+              if (resultError) {
+                console.error("Failed to insert search result:", resultError);
+              }
             }
           }
         }
       } catch (err) {
         console.error("Failed to save to Supabase:", err);
-        // Don't fail the request if save fails
       }
     }
 

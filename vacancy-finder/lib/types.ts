@@ -1,4 +1,5 @@
 export interface VacantProperty {
+  id?: string;           // Database UUID, set after saving to Supabase
   address: string;
   city: string;
   state: string;
@@ -113,7 +114,7 @@ export interface SavedPropertyRecord {
   status: "new" | "contacted" | "in_conversation" | "dead";
   saved_at: string;
   property?: PropertyRecord;
-  search_results?: SearchResultRecord[];
+  search_result?: SearchResultRecord | null;
 }
 
 export interface OutreachRequest {
@@ -122,7 +123,7 @@ export interface OutreachRequest {
 }
 
 export interface SearchResponse {
-  searchId: string;
+  searchId: string | null;
   properties: VacantProperty[];
   marketNotes: string;
 }

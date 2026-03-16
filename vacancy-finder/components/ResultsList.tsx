@@ -109,7 +109,7 @@ export default function ResultsList({
       <div className="space-y-3">
         {sorted.map((prop, i) => (
           <PropertyCard
-            key={`${prop.address}-${i}`}
+            key={prop.id || `${prop.address}-${prop.city}-${prop.state}`}
             property={prop}
             onSave={onSave}
             onSkip={onSkip}

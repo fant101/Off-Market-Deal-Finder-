@@ -7,8 +7,33 @@ import OutreachModal from "@/components/OutreachModal";
 import { supabase } from "@/lib/supabase/client";
 import type { VacantProperty } from "@/lib/types";
 
+interface SavedPropertyResponse {
+  id: string;
+  property_id: string;
+  notes: string | null;
+  status: "new" | "contacted" | "in_conversation" | "dead";
+  saved_at: string;
+  property: {
+    id: string;
+    address: string;
+    city: string | null;
+    state: string | null;
+    zip: string | null;
+    lat: number | null;
+    lng: number | null;
+    property_type: string | null;
+    estimated_sf: string | null;
+  };
+  search_result: {
+    vacancy_signal: string | null;
+    confidence: "high" | "medium" | "low" | null;
+    strategy: string | null;
+    owner_name: string | null;
+  } | null;
+}
+
 export default function SavedPage() {
-  const [savedProperties, setSavedProperties] = useState<any[]>([]);
+  const [savedProperties, setSavedProperties] = useState<SavedPropertyResponse[]>([]);
   const [loading, setLoading] = useState(true);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [outreachProperty, setOutreachProperty] = useState<VacantProperty | null>(null);
@@ -17,6 +42,10 @@ export default function SavedPage() {
     supabase.auth.getSession().then(({ data }) => {
       setAuthToken(data.session?.access_token ?? null);
     });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthToken(session?.access_token ?? null);
+    });
+    return () => listener.subscription.unsubscribe();
   }, []);
 
   const fetchSaved = useCallback(async () => {
@@ -28,7 +57,7 @@ export default function SavedPage() {
       });
       if (res.ok) {
         const data = await res.json();
-        setSavedProperties(data);
+        setSavedProperties(data || []);
       }
     } catch {
       // Silent fail
@@ -38,13 +67,17 @@ export default function SavedPage() {
   }, [authToken]);
 
   useEffect(() => {
-    if (authToken) fetchSaved();
+    if (authToken) {
+      fetchSaved();
+    } else {
+      setLoading(false);
+    }
   }, [authToken, fetchSaved]);
 
   const handleUnsave = async (propertyId: string) => {
     if (!authToken) return;
     try {
-      await fetch("/api/properties/save", {
+      const res = await fetch("/api/properties/save", {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
@@ -52,9 +85,11 @@ export default function SavedPage() {
         },
         body: JSON.stringify({ propertyId }),
       });
-      setSavedProperties((prev) =>
-        prev.filter((p) => p.property_id !== propertyId)
-      );
+      if (res.ok) {
+        setSavedProperties((prev) =>
+          prev.filter((p) => p.property_id !== propertyId)
+        );
+      }
     } catch {
       // Silent fail
     }
@@ -63,7 +98,7 @@ export default function SavedPage() {
   const handleUpdateStatus = async (propertyId: string, status: string) => {
     if (!authToken) return;
     try {
-      await fetch("/api/properties/save", {
+      const res = await fetch("/api/properties/save", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -71,18 +106,21 @@ export default function SavedPage() {
         },
         body: JSON.stringify({ propertyId, status }),
       });
-      setSavedProperties((prev) =>
-        prev.map((p) =>
-          p.property_id === propertyId ? { ...p, status } : p
-        )
-      );
+      if (res.ok) {
+        setSavedProperties((prev) =>
+          prev.map((p) =>
+            p.property_id === propertyId ? { ...p, status: status as SavedPropertyResponse["status"] } : p
+          )
+        );
+      }
     } catch {
       // Silent fail
     }
   };
 
-  const handleDraftOutreach = (saved: any) => {
+  const handleDraftOutreach = (saved: SavedPropertyResponse) => {
     const prop: VacantProperty = {
+      id: saved.property.id,
       address: saved.property.address,
       city: saved.property.city || "",
       state: saved.property.state || "",

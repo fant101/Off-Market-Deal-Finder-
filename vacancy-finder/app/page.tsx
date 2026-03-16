@@ -19,6 +19,7 @@ export default function HomePage() {
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [view, setView] = useState<"split" | "map" | "list">("split");
   const [error, setError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -33,6 +34,7 @@ export default function HomePage() {
   const handleSearch = async (params: SearchParams) => {
     setLoading(true);
     setError(null);
+    setSaveError(null);
     setResults([]);
     setMarketNotes("");
 
@@ -52,14 +54,17 @@ export default function HomePage() {
       }
 
       const data: SearchResponse = await res.json();
-      setResults(data.properties);
+      setResults(data.properties || []);
       setMarketNotes(data.marketNotes || "");
 
+      // Set map center — prefer user-selected location, fallback to first geocoded result
       if (params.lat && params.lng) {
         setCenter({ lat: params.lat, lng: params.lng });
-      } else if (data.properties.length > 0) {
+      } else if (data.properties && data.properties.length > 0) {
         const first = data.properties.find((p) => p.lat && p.lng);
-        if (first) setCenter({ lat: first.lat!, lng: first.lng! });
+        if (first && first.lat && first.lng) {
+          setCenter({ lat: first.lat, lng: first.lng });
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Search failed. Please try again.");
@@ -70,24 +75,51 @@ export default function HomePage() {
 
   const handleSave = useCallback(
     async (property: VacantProperty) => {
-      if (!authToken) return;
+      if (!authToken) {
+        setSaveError("Sign in to save properties");
+        setTimeout(() => setSaveError(null), 3000);
+        return;
+      }
 
-      // For demo/preview, we track by address key
+      if (!property.id) {
+        setSaveError("Property cannot be saved — missing database ID. Try searching again while signed in.");
+        setTimeout(() => setSaveError(null), 4000);
+        return;
+      }
+
+      // Optimistic update
       const key = `${property.address}-${property.city}-${property.state}`.toLowerCase();
       setSavedIds((prev) => new Set(prev).add(key));
 
-      // If we have Supabase and a property_id, save via API
       try {
-        await fetch("/api/properties/save", {
+        const res = await fetch("/api/properties/save", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${authToken}`,
           },
-          body: JSON.stringify({ propertyId: property.address }), // Simplified for now
+          body: JSON.stringify({ propertyId: property.id }),
         });
+
+        if (!res.ok) {
+          // Rollback optimistic update
+          setSavedIds((prev) => {
+            const next = new Set(prev);
+            next.delete(key);
+            return next;
+          });
+          setSaveError("Failed to save property");
+          setTimeout(() => setSaveError(null), 3000);
+        }
       } catch {
-        // Silent fail for save
+        // Rollback optimistic update
+        setSavedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+        setSaveError("Failed to save property");
+        setTimeout(() => setSaveError(null), 3000);
       }
     },
     [authToken]
@@ -96,14 +128,25 @@ export default function HomePage() {
   const handleSkip = useCallback(
     (property: VacantProperty) => {
       setResults((prev) => prev.filter((p) => p.address !== property.address));
+
+      // Also skip in backend if authenticated
+      if (authToken && property.id) {
+        fetch("/api/properties/skip", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ propertyId: property.id }),
+        }).catch(() => { /* best effort */ });
+      }
     },
-    []
+    [authToken]
   );
 
   const handlePropertySelect = useCallback((property: VacantProperty) => {
-    // Scroll to property in list (could be enhanced)
     const el = document.querySelector(
-      `[data-address="${property.address}"]`
+      `[data-address="${CSS.escape(property.address)}"]`
     );
     el?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
@@ -124,10 +167,15 @@ export default function HomePage() {
           <SearchForm onSearch={handleSearch} loading={loading} />
         </div>
 
-        {/* Error */}
+        {/* Error messages */}
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <p className="text-sm text-red-700">{error}</p>
+          </div>
+        )}
+        {saveError && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+            <p className="text-sm text-amber-700">{saveError}</p>
           </div>
         )}
 

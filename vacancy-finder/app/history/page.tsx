@@ -17,6 +17,10 @@ export default function HistoryPage() {
     supabase.auth.getSession().then(({ data }) => {
       setAuthToken(data.session?.access_token ?? null);
     });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuthToken(session?.access_token ?? null);
+    });
+    return () => listener.subscription.unsubscribe();
   }, []);
 
   useEffect(() => {

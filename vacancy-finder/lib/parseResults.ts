@@ -83,6 +83,7 @@ function validateConfidence(val: string): "high" | "medium" | "low" {
 }
 
 function normalizeAddress(addr: string): string {
+  if (!addr) return "";
   return addr
     .toLowerCase()
     .replace(/[.,#]/g, "")

@@ -8,16 +8,22 @@ export async function geocodeAddress(
   address: string
 ): Promise<GeocodeResult | null> {
   const apiKey = process.env.GOOGLE_MAPS_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey || !address) return null;
 
   try {
     const encoded = encodeURIComponent(address);
     const res = await fetch(
       `https://maps.googleapis.com/maps/api/geocode/json?address=${encoded}&key=${apiKey}`
     );
+
+    if (!res.ok) {
+      console.error(`Geocoding HTTP error: ${res.status}`);
+      return null;
+    }
+
     const data = await res.json();
 
-    if (data.status === "OK" && data.results.length > 0) {
+    if (data.status === "OK" && data.results && data.results.length > 0) {
       const result = data.results[0];
       return {
         lat: result.geometry.location.lat,
@@ -40,6 +46,7 @@ export async function batchGeocode(
   for (let i = 0; i < addresses.length; i += batchSize) {
     const batch = addresses.slice(i, i + batchSize);
     const promises = batch.map(async (addr) => {
+      if (typeof addr !== "string" || !addr.trim()) return;
       const result = await geocodeAddress(addr);
       if (result) {
         results.set(addr, result);
@@ -57,6 +64,6 @@ export function getStreetViewUrl(
   width = 400,
   height = 200
 ): string {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || "";
   return `https://maps.googleapis.com/maps/api/streetview?size=${width}x${height}&location=${lat},${lng}&key=${apiKey}`;
 }

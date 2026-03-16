@@ -9,8 +9,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: { user } } = await supabaseAdmin.auth.getUser(token);
-  if (!user) {
+  const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+  if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   // For each saved property, get the latest search result data
-  const enriched = await Promise.all(
+  const enriched = await Promise.allSettled(
     (data || []).map(async (saved) => {
       const { data: searchResults } = await supabaseAdmin
         .from("search_results")
@@ -41,5 +41,9 @@ export async function GET(request: NextRequest) {
     })
   );
 
-  return NextResponse.json(enriched);
+  const results = enriched
+    .filter((r) => r.status === "fulfilled")
+    .map((r) => (r as PromiseFulfilledResult<unknown>).value);
+
+  return NextResponse.json(results);
 }
