@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
   let query = supabaseAdmin
     .from("watchlist_alerts")
     .select("*, property:properties(address, city, state)")
-    .in("watchlist_id", watchlistId ? [watchlistId] : watchlistIds)
+    .in("watchlist_id", watchlistId && watchlistIds.includes(watchlistId) ? [watchlistId] : watchlistIds)
     .order("created_at", { ascending: false })
     .limit(100);
 

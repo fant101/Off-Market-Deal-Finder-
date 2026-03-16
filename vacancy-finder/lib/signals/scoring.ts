@@ -113,29 +113,34 @@ export async function generateSignalSummary(
   signals: VacancySignal[],
   score: VacancyScore
 ): Promise<string> {
-  const anthropic = getAnthropicClient();
+  try {
+    const anthropic = getAnthropicClient();
 
-  const signalDescriptions = signals
-    .map((s) => `- [${SIGNAL_LABELS[s.type]}] ${s.description} (score: ${s.score}/100)`)
-    .join("\n");
+    const signalDescriptions = signals
+      .map((s) => `- [${SIGNAL_LABELS[s.type]}] ${s.description} (score: ${s.score}/100)`)
+      .join("\n");
 
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1024,
-    system:
-      "You are a commercial real estate analyst. Summarize vacancy evidence for a broker in 2-3 concise sentences. Be factual and specific. Do not hedge excessively.",
-    messages: [
-      {
-        role: "user",
-        content: `Property: ${address}\nComposite vacancy score: ${score.composite_score}/100\nSignals found:\n${signalDescriptions}\n\nSummarize the vacancy evidence for a CRE broker.`,
-      },
-    ],
-  });
+    const response = await anthropic.messages.create({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 1024,
+      system:
+        "You are a commercial real estate analyst. Summarize vacancy evidence for a broker in 2-3 concise sentences. Be factual and specific. Do not hedge excessively.",
+      messages: [
+        {
+          role: "user",
+          content: `Property: ${address}\nComposite vacancy score: ${score.composite_score}/100\nSignals found:\n${signalDescriptions}\n\nSummarize the vacancy evidence for a CRE broker.`,
+        },
+      ],
+    });
 
-  const text = response.content
-    .filter((b): b is Anthropic.TextBlock => b.type === "text")
-    .map((b) => b.text)
-    .join(" ");
+    const text = response.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join(" ");
 
-  return text || score.reasoning;
+    return text || score.reasoning;
+  } catch (err) {
+    console.error("Signal summary generation failed:", err);
+    return score.reasoning;
+  }
 }

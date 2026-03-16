@@ -36,7 +36,7 @@ export default function ResultsList({
     }
     if (sortBy === "address") return a.address.localeCompare(b.address);
     if (sortBy === "property_type")
-      return a.property_type.localeCompare(b.property_type);
+      return (a.property_type || "").localeCompare(b.property_type || "");
     return 0;
   });
 

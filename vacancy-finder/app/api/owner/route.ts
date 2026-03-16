@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     .from("owner_portfolios")
     .select("*")
     .eq("owner_name", ownerName)
-    .single();
+    .maybeSingle();
 
   // If cached data is less than 7 days old, return it
   if (cached && cached.last_updated) {

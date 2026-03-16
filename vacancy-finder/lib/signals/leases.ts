@@ -50,13 +50,15 @@ Look for lease terms, sublease listings, and space availability. Report what you
     if (data.space_available) score += 25;
     if (data.estimated_lease_end) {
       const endDate = new Date(data.estimated_lease_end);
-      const now = new Date();
-      const monthsUntil =
-        (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30);
-      if (monthsUntil <= 0) score += 40; // Already expired
-      else if (monthsUntil <= 3) score += 30;
-      else if (monthsUntil <= 6) score += 20;
-      else if (monthsUntil <= 12) score += 10;
+      if (!isNaN(endDate.getTime())) {
+        const now = new Date();
+        const monthsUntil =
+          (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24 * 30);
+        if (monthsUntil <= 0) score += 40; // Already expired
+        else if (monthsUntil <= 3) score += 30;
+        else if (monthsUntil <= 6) score += 20;
+        else if (monthsUntil <= 12) score += 10;
+      }
     }
 
     score = Math.min(100, score);

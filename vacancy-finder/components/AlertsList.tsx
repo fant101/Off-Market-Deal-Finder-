@@ -74,8 +74,8 @@ export default function AlertsList({ alerts, onMarkRead }: AlertsListProps) {
               )}
               {alert.property && (
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {alert.property.address}, {alert.property.city},{" "}
-                  {alert.property.state}
+                  {alert.property.address}, {alert.property.city || ""},{" "}
+                  {alert.property.state || ""}
                 </p>
               )}
               <p className="text-[10px] text-gray-400 mt-1">
