@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+@theme {
+  --color-resolute-dark-green: #131f13;
+  --color-resolute-deep-green: #0b140b;
+  --color-resolute-gold: #cba135;
+  --color-resolute-gold-light: #d4b44e;
+  --color-resolute-cream: #f5f0e8;
+  --color-resolute-white: #ffffff;
+  --color-resolute-border: #e5e3de;
+
+  --font-display: "Cormorant Garamond", serif;
+  --font-body: "DM Sans", sans-serif;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-resolute-cream);
+  color: var(--color-resolute-dark-green);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-display);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--color-resolute-cream);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-resolute-gold);
+  border-radius: 3px;
+}
+
+/* Strategy card toggle */
+.strategy-card {
+  transition: all 0.2s ease;
+  border: 2px solid var(--color-resolute-border);
+  cursor: pointer;
+}
+.strategy-card:hover {
+  border-color: var(--color-resolute-gold-light);
+}
+.strategy-card.active {
+  border-color: var(--color-resolute-gold);
+  background-color: rgba(203, 161, 53, 0.08);
+}
+
+/* Property card left accent */
+.property-card {
+  border-left: 3px solid var(--color-resolute-gold);
+}
+
+/* Confidence dots */
+.confidence-high { color: #dc2626; }
+.confidence-medium { color: #f59e0b; }
+.confidence-low { color: #22c55e; }
+
+/* Pulse animation for loading */
+@keyframes search-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+.search-loading {
+  animation: search-pulse 2s ease-in-out infinite;
+}
